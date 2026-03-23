@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TeleOp SDK — Remote Robotics Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;600;700;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080c10;
+    --bg2: #0d1318;
+    --bg3: #111920;
+    --panel: #0a1520;
+    --border: #1a3a4a;
+    --accent: #00d4ff;
+    --accent2: #00ff9d;
+    --accent3: #ff6b35;
+    --warn: #ffc107;
+    --danger: #ff3366;
+    --text: #c8e8f0;
+    --text-dim: #4a7080;
+    --text-bright: #ffffff;
+    --glow: 0 0 20px rgba(0,212,255,0.3);
+    --glow2: 0 0 20px rgba(0,255,157,0.3);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 2px,
+      rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* Grid background */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap { position: relative; z-index: 1; }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 28px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(8,12,16,0.95);
+    backdrop-filter: blur(10px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 36px; height: 36px;
+    border: 2px solid var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: var(--glow);
+    position: relative;
+    overflow: hidden;
+  }
+  .logo-icon::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(0,212,255,0.15), transparent);
+  }
+  .logo-icon svg { width: 20px; height: 20px; color: var(--accent); }
+
+  .logo-text {
+    font-family: 'Orbitron', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-bright);
+    letter-spacing: 2px;
+  }
+  .logo-text span { color: var(--accent); }
+
+  .logo-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .header-status {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,255,157,0.07);
+    border: 1px solid rgba(0,255,157,0.25);
+    border-radius: 4px;
+    padding: 5px 12px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--accent2);
+  }
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent2);
+    box-shadow: 0 0 8px var(--accent2);
+    animation: pulse 1.4s ease infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; } 50% { opacity: 0.3; }
+  }
+
+  .header-nav {
+    display: flex;
+    gap: 4px;
+  }
+  .nav-btn {
+    padding: 6px 14px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: var(--text-dim);
+    font-family: 'Barlow', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .nav-btn:hover, .nav-btn.active {
+    color: var(--accent);
+    border-color: var(--border);
+    background: rgba(0,212,255,0.06);
+  }
+
+  /* ── HERO ── */
+  .hero {
+    padding: 60px 40px 40px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(0,212,255,0.06), transparent);
+    pointer-events: none;
+  }
+
+  .hero-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    border: 1px solid rgba(0,212,255,0.25);
+    border-radius: 20px;
+    padding: 5px 16px;
+  }
+
+  .hero h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight: 900;
+    color: var(--text-bright);
+    line-height: 1.1;
+    margin-bottom: 16px;
+    letter-spacing: -1px;
+  }
+  .hero h1 .hl { color: var(--accent); }
+  .hero h1 .hl2 { color: var(--accent2); }
+
+  .hero p {
+    max-width: 640px;
+    margin: 0 auto 36px;
+    color: var(--text-dim);
+    font-size: 16px;
+    line-height: 1.6;
+    font-weight: 300;
+  }
+
+  .hero-ctas {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .btn-primary {
+    padding: 12px 28px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 4px;
+    font-family: 'Barlow', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: var(--glow);
+    transition: all 0.2s;
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 0 30px rgba(0,212,255,0.5); }
+
+  .btn-outline {
+    padding: 12px 28px;
+    background: transparent;
+    color: var(--accent2);
+    border: 1px solid rgba(0,255,157,0.4);
+    border-radius: 4px;
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-outline:hover { background: rgba(0,255,157,0.06); box-shadow: var(--glow2); }
+
+  /* ── STATS BAR ── */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    margin: 0 40px;
+  }
+  .stat-item {
+    padding: 20px 24px;
+    border-right: 1px solid var(--border);
+    text-align: center;
+  }
+  .stat-item:last-child { border-right: none; }
+  .stat-val {
+    font-family: 'Orbitron', monospace;
+    font-size: 28px;
+    font-weight: 900;
+    color: var(--accent);
+    display: block;
+  }
+  .stat-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  /* ── MAIN LAYOUT ── */
+  .main {
+    padding: 40px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  /* ── PANEL ── */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .panel.full { grid-column: 1 / -1; }
+  .panel.tall { grid-row: span 2; }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(0,0,0,0.3);
+  }
+  .panel-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel-title::before {
+    content: '';
+    width: 4px; height: 14px;
+    background: var(--accent);
+    border-radius: 2px;
+    box-shadow: var(--glow);
+  }
+
+  .panel-body { padding: 20px; }
+
+  /* ── CODE BLOCK ── */
+  .code-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    background: rgba(0,0,0,0.4);
+    overflow-x: auto;
+  }
+  .code-tab {
+    padding: 10px 18px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    cursor: pointer;
+    border-right: 1px solid var(--border);
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+  .code-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    background: rgba(0,212,255,0.05);
+  }
+
+  .code-pane { display: none; padding: 0; }
+  .code-pane.active { display: block; }
+
+  pre {
+    background: transparent;
+    padding: 20px;
+    overflow-x: auto;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    line-height: 1.8;
+    color: #8ab4c0;
+    max-height: 360px;
+    overflow-y: auto;
+  }
+  pre::-webkit-scrollbar { width: 4px; height: 4px; }
+  pre::-webkit-scrollbar-track { background: transparent; }
+  pre::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .kw { color: #569cd6; }
+  .fn { color: #dcdcaa; }
+  .st { color: #ce9178; }
+  .cm { color: #4a7080; font-style: italic; }
+  .num { color: #b5cea8; }
+  .cls { color: #4ec9b0; }
+  .prop { color: #9cdcfe; }
+
+  /* ── ARCHITECTURE DIAGRAM ── */
+  .arch-diagram {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    align-items: center;
+  }
+
+  .arch-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .arch-node {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 18px;
+    text-align: center;
+    min-width: 130px;
+    position: relative;
+    transition: all 0.3s;
+  }
+  .arch-node:hover {
+    border-color: var(--accent);
+    box-shadow: var(--glow);
+  }
+  .arch-node.highlighted {
+    border-color: var(--accent2);
+    box-shadow: var(--glow2);
+    background: rgba(0,255,157,0.05);
+  }
+
+  .arch-node-icon {
+    font-size: 22px;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .arch-node-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 9px;
+    color: var(--accent);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+  .arch-node-sub {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  .arch-arrow {
+    color: var(--text-dim);
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .arch-arrow.vertical {
+    transform: rotate(90deg);
+  }
+
+  .arch-badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--accent2);
+    background: rgba(0,255,157,0.1);
+    border: 1px solid rgba(0,255,157,0.2);
+    border-radius: 3px;
+    padding: 2px 6px;
+    white-space: nowrap;
+  }
+
+  /* ── FEATURES GRID ── */
+  .features {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    padding: 20px;
+  }
+
+  .feature-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 18px;
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+  .feature-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), transparent);
+    opacity: 0;
+    transition: opacity 0.25s;
+  }
+  .feature-card:hover { border-color: rgba(0,212,255,0.35); transform: translateY(-2px); }
+  .feature-card:hover::before { opacity: 1; }
+
+  .feature-icon {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    background: rgba(0,212,255,0.1);
+    border: 1px solid rgba(0,212,255,0.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    margin-bottom: 12px;
+  }
+  .feature-name {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--text-bright);
+    margin-bottom: 6px;
+  }
+  .feature-desc {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  /* ── API REFERENCE ── */
+  .api-list { padding: 8px 20px 20px; }
+
+  .api-item {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+
+  .api-item-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    cursor: pointer;
+    background: var(--bg3);
+    transition: background 0.2s;
+  }
+  .api-item-header:hover { background: rgba(0,212,255,0.05); }
+
+  .api-method {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 3px;
+    background: rgba(0,212,255,0.15);
+    color: var(--accent);
+    border: 1px solid rgba(0,212,255,0.3);
+    min-width: 48px;
+    text-align: center;
+  }
+  .api-method.post { background: rgba(0,255,157,0.12); color: var(--accent2); border-color: rgba(0,255,157,0.3); }
+  .api-method.ws { background: rgba(255,107,53,0.12); color: var(--accent3); border-color: rgba(255,107,53,0.3); }
+  .api-method.evt { background: rgba(255,193,7,0.1); color: var(--warn); border-color: rgba(255,193,7,0.25); }
+
+  .api-name {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: var(--text-bright);
+    flex: 1;
+  }
+  .api-desc {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .api-detail {
+    padding: 14px 16px;
+    border-top: 1px solid var(--border);
+    background: rgba(0,0,0,0.3);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.7;
+    display: none;
+  }
+  .api-item.open .api-detail { display: block; }
+  .api-item.open .api-item-header { background: rgba(0,212,255,0.05); }
+
+  .api-param {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .api-param-name { color: var(--accent); min-width: 120px; }
+  .api-param-type { color: var(--accent3); min-width: 80px; }
+  .api-param-info { color: var(--text-dim); }
+
+  /* ── INSTALL SECTION ── */
+  .install-section { padding: 20px; }
+  .install-cmd {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: var(--accent2);
+  }
+  .install-cmd .prompt { color: var(--text-dim); }
+  .install-cmd .cmd { flex: 1; }
+  .copy-btn {
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.2);
+    border-radius: 4px;
+    color: var(--text-dim);
+    font-size: 11px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-family: 'Share Tech Mono', monospace;
+    transition: all 0.2s;
+  }
+  .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+  .install-note {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 12px;
+    line-height: 1.5;
+  }
+  .install-note a { color: var(--accent); text-decoration: none; }
+
+  /* ── LIVE DEMO PANEL ── */
+  .demo-panel {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .demo-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .ctrl-group label {
+    display: block;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .ctrl-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .ctrl-input:focus { border-color: var(--accent); }
+
+  .ctrl-select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    appearance: none;
+    cursor: pointer;
+  }
+
+  .ctrl-slider { width: 100%; accent-color: var(--accent); }
+
+  .telem-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  .telem-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+    text-align: center;
+  }
+  .telem-val {
+    font-family: 'Orbitron', monospace;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent2);
+    display: block;
+  }
+  .telem-unit {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .log-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+    height: 130px;
+    overflow-y: auto;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    line-height: 1.7;
+  }
+  .log-box::-webkit-scrollbar { width: 3px; }
+  .log-box::-webkit-scrollbar-thumb { background: var(--border); }
+  .log-entry { margin-bottom: 2px; }
+  .log-time { color: var(--text-dim); }
+  .log-ok { color: var(--accent2); }
+  .log-info { color: var(--accent); }
+  .log-warn { color: var(--warn); }
+  .log-err { color: var(--danger); }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 24px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 20px;
+  }
+  .footer-brand {
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .footer-links { display: flex; gap: 16px; }
+  .footer-links a {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-decoration: none;
+    letter-spacing: 1px;
+    font-family: 'Share Tech Mono', monospace;
+    transition: color 0.2s;
+  }
+  .footer-links a:hover { color: var(--accent); }
+
+  /* ── ANIMATION ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .panel { animation: fadeUp 0.5s ease both; }
+  .panel:nth-child(1) { animation-delay: 0.05s; }
+  .panel:nth-child(2) { animation-delay: 0.10s; }
+  .panel:nth-child(3) { animation-delay: 0.15s; }
+  .panel:nth-child(4) { animation-delay: 0.20s; }
+  .panel:nth-child(5) { animation-delay: 0.25s; }
+  .panel:nth-child(6) { animation-delay: 0.30s; }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .main { grid-template-columns: 1fr; padding: 20px; }
+    .panel.tall { grid-row: auto; }
+    .features { grid-template-columns: 1fr 1fr; }
+    .stats-bar { grid-template-columns: 2fr 2fr; margin: 0; }
+    .telem-grid { grid-template-columns: repeat(2,1fr); }
+    .hero { padding: 40px 20px 30px; }
+    footer { flex-direction: column; gap: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ── HEADER ── -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+        <path d="M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>
+      </svg>
+    </div>
+    <div>
+      <div class="logo-text">Tele<span>Op</span> SDK</div>
+      <div class="logo-sub">for Arduino &amp; beyond</div>
+    </div>
+  </div>
+  <nav class="header-nav">
+    <button class="nav-btn active" onclick="showSection('overview')">Overview</button>
+    <button class="nav-btn" onclick="showSection('quickstart')">Quickstart</button>
+    <button class="nav-btn" onclick="showSection('api')">API Ref</button>
+    <button class="nav-btn" onclick="showSection('demo')">Live Demo</button>
+  </nav>
+  <div class="header-status">
+    <div class="status-pill">
+      <div class="status-dot"></div>
+      v2.4.1 — STABLE
+    </div>
+  </div>
+</header>
+
+<!-- ── HERO ── -->
+<div class="hero" id="sec-overview">
+  <div class="hero-bg"></div>
+  <div class="hero-tag">⚡ Open-Source Robotics SDK</div>
+  <h1>Remote Control Your Robot<br>From <span class="hl">Anywhere</span> on <span class="hl2">Earth</span></h1>
+  <p>TeleOp SDK makes it trivially easy to add internet-scale teleoperation to any Arduino-based robot — with sub-50ms latency, built-in security, and a clean, expressive API.</p>
+  <div class="hero-ctas">
+    <button class="btn-primary" onclick="showSection('quickstart')">Get Started →</button>
+    <button class="btn-outline" onclick="showSection('api')">API Reference</button>
+  </div>
+</div>
+
+<!-- ── STATS ── -->
+<div class="stats-bar">
+  <div class="stat-item"><span class="stat-val">&lt;50ms</span><div class="stat-label">Round-trip latency</div></div>
+  <div class="stat-item"><span class="stat-val">AES-256</span><div class="stat-label">Command encryption</div></div>
+  <div class="stat-item"><span class="stat-val">10Hz</span><div class="stat-label">Telemetry stream</div></div>
+  <div class="stat-item"><span class="stat-val">∞</span><div class="stat-label">Distance, via Internet</div></div>
+</div>
+
+<!-- ── MAIN CONTENT ── -->
+<div class="main">
+
+  <!-- Architecture panel -->
+  <div class="panel full" id="sec-arch">
+    <div class="panel-header">
+      <div class="panel-title">System Architecture</div>
+      <span style="font-size:10px;color:var(--text-dim);font-family:'Share Tech Mono',monospace;">WebSocket + MQTT over TLS</span>
+    </div>
+    <div class="arch-diagram">
+      <div class="arch-row">
+        <div class="arch-node">
+          <span class="arch-node-icon">🎮</span>
+          <div class="arch-node-label">Operator</div>
+          <div class="arch-node-sub">Browser / Python Client</div>
+        </div>
+        <div class="arch-arrow">⟶</div>
+        <div class="arch-badge">HTTPS/WSS<br>TLS 1.3</div>
+        <div class="arch-arrow">⟶</div>
+        <div class="arch-node highlighted">
+          <span class="arch-node-icon">☁️</span>
+          <div class="arch-node-label">TeleOp Relay</div>
+          <div class="arch-node-sub">Anycast edge nodes</div>
+        </div>
+        <div class="arch-arrow">⟶</div>
+        <div class="arch-badge">MQTT/TLS<br>+AES-256</div>
+        <div class="arch-arrow">⟶</div>
+        <div class="arch-node">
+          <span class="arch-node-icon">📡</span>
+          <div class="arch-node-label">Robot Gateway</div>
+          <div class="arch-node-sub">ESP32 / Raspberry Pi</div>
+        </div>
+        <div class="arch-arrow">⟶</div>
+        <div class="arch-badge">USB Serial<br>115200 baud</div>
+        <div class="arch-arrow">⟶</div>
+        <div class="arch-node">
+          <span class="arch-node-icon">🤖</span>
+          <div class="arch-node-label">Arduino</div>
+          <div class="arch-node-sub">TeleOp Library</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:40px;margin-top:8px;">
+        <div style="font-size:11px;color:var(--text-dim);font-family:'Share Tech Mono',monospace;">
+          ↑ Telemetry flows in reverse at 10Hz — sensors, IMU, battery, position
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Features -->
+  <div class="panel full">
+    <div class="panel-header">
+      <div class="panel-title">SDK Features</div>
+    </div>
+    <div class="features">
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-name">Ultra-Low Latency</div>
+        <div class="feature-desc">Anycast relay network with edge nodes on 6 continents. Commands reach your robot in under 50ms from anywhere on Earth.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔐</div>
+        <div class="feature-name">End-to-End Encryption</div>
+        <div class="feature-desc">AES-256-GCM for all command payloads. TLS 1.3 transport. JWT-signed robot identity — no command spoofing.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <div class="feature-name">Live Telemetry</div>
+        <div class="feature-desc">Stream sensor data, IMU, GPS, battery, and custom metrics back to the operator at configurable rates up to 50Hz.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🎮</div>
+        <div class="feature-name">Gamepad Support</div>
+        <div class="feature-desc">Plug-and-play support for Xbox, PS5, and generic HID gamepads via the Web Gamepad API. Deadzone, curve, and axis mapping built-in.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔌</div>
+        <div class="feature-name">Arduino Library</div>
+        <div class="feature-desc">Install via Arduino Library Manager. Works on Uno, Mega, Nano, and any board with a serial interface to an ESP32 gateway.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🌐</div>
+        <div class="feature-name">Multi-Platform SDKs</div>
+        <div class="feature-desc">Official clients for Python, JavaScript/Node.js, ROS2 (C++), and a browser-native web SDK. REST fallback for constrained networks.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Start / Code -->
+  <div class="panel full" id="sec-quickstart">
+    <div class="panel-header">
+      <div class="panel-title">Quickstart</div>
+      <span style="font-size:10px;color:var(--text-dim);font-family:'Share Tech Mono',monospace;">Install → Wire → Control</span>
+    </div>
+    <div class="install-section">
+      <div class="install-cmd">
+        <span class="prompt"># Library Manager (Arduino IDE 2.x)</span>
+      </div>
+      <div class="install-cmd">
+        <span class="prompt">$</span>
+        <span class="cmd">arduino-cli lib install "TeleOpSDK"</span>
+        <button class="copy-btn" onclick="copyCmd(this,'arduino-cli lib install &quot;TeleOpSDK&quot;')">COPY</button>
+      </div>
+      <div class="install-cmd">
+        <span class="prompt">$</span>
+        <span class="cmd">pip install teleop-sdk</span>
+        <button class="copy-btn" onclick="copyCmd(this,'pip install teleop-sdk')">COPY</button>
+      </div>
+      <div class="install-cmd">
+        <span class="prompt">$</span>
+        <span class="cmd">npm install @teleop/sdk</span>
+        <button class="copy-btn" onclick="copyCmd(this,'npm install @teleop/sdk')">COPY</button>
+      </div>
+      <div class="install-note">Requires Arduino IDE 2.x or CLI 0.34+. The gateway firmware runs on any ESP32 board. See <a href="#">hardware guide →</a></div>
+    </div>
+
+    <div class="code-tabs">
+      <div class="code-tab active" onclick="switchTab(this,'tab-arduino')">Arduino (Robot)</div>
+      <div class="code-tab" onclick="switchTab(this,'tab-python')">Python (Operator)</div>
+      <div class="code-tab" onclick="switchTab(this,'tab-js')">JavaScript (Web)</div>
+      <div class="code-tab" onclick="switchTab(this,'tab-esp32')">ESP32 Gateway</div>
+      <div class="code-tab" onclick="switchTab(this,'tab-ros2')">ROS2 Node</div>
+    </div>
+
+    <div class="code-pane active" id="tab-arduino">
+<pre><span class="cm">// ── Arduino Robot Controller ────────────────────────────────────────
+// Include the TeleOp SDK library (install via Library Manager)</span>
+#<span class="kw">include</span> <span class="st">&lt;TeleOpSDK.h&gt;</span>
+
+<span class="cm">// Robot credentials — generate at dashboard.teleop.dev</span>
+<span class="kw">const char</span>* ROBOT_ID  = <span class="st">"robo-xyz-7a3f"</span>;
+<span class="kw">const char</span>* SECRET    = <span class="st">"sk-live-abc123..."</span>;
+
+<span class="cls">TeleOpSDK</span> teleop(ROBOT_ID, SECRET);
+
+<span class="cm">// Declare servo and motor pins</span>
+<span class="kw">const int</span> MOTOR_L  = <span class="num">5</span>;
+<span class="kw">const int</span> MOTOR_R  = <span class="num">6</span>;
+<span class="kw">const int</span> SERVO_PAN = <span class="num">9</span>;
+
+<span class="kw">void</span> <span class="fn">setup</span>() {
+  Serial.<span class="fn">begin</span>(<span class="num">115200</span>);   <span class="cm">// Gateway talks over USB serial</span>
+  teleop.<span class="fn">begin</span>(Serial);
+
+  <span class="cm">// Register command handlers — called when operator sends a command</span>
+  teleop.<span class="fn">onCommand</span>(<span class="st">"drive"</span>, [](TeleOpCmd cmd) {
+    <span class="kw">float</span> speed = cmd.<span class="fn">getFloat</span>(<span class="st">"speed"</span>);   <span class="cm">// -1.0 → +1.0</span>
+    <span class="kw">float</span> turn  = cmd.<span class="fn">getFloat</span>(<span class="st">"turn"</span>);
+    <span class="kw">int</span> l = <span class="fn">constrain</span>((speed + turn) * <span class="num">255</span>, -<span class="num">255</span>, <span class="num">255</span>);
+    <span class="kw">int</span> r = <span class="fn">constrain</span>((speed - turn) * <span class="num">255</span>, -<span class="num">255</span>, <span class="num">255</span>);
+    <span class="fn">analogWrite</span>(MOTOR_L, <span class="fn">abs</span>(l));
+    <span class="fn">analogWrite</span>(MOTOR_R, <span class="fn">abs</span>(r));
+  });
+
+  teleop.<span class="fn">onCommand</span>(<span class="st">"pan"</span>, [](TeleOpCmd cmd) {
+    <span class="kw">int</span> angle = cmd.<span class="fn">getInt</span>(<span class="st">"angle"</span>);   <span class="cm">// 0-180°</span>
+    <span class="fn">analogWrite</span>(SERVO_PAN, <span class="fn">map</span>(angle, <span class="num">0</span>, <span class="num">180</span>, <span class="num">500</span>, <span class="num">2500</span>));
+  });
+
+  teleop.<span class="fn">onCommand</span>(<span class="st">"estop"</span>, [](TeleOpCmd cmd) {
+    <span class="fn">analogWrite</span>(MOTOR_L, <span class="num">0</span>);
+    <span class="fn">analogWrite</span>(MOTOR_R, <span class="num">0</span>);
+    teleop.<span class="fn">emit</span>(<span class="st">"alert"</span>, {<span class="st">"msg"</span>: <span class="st">"ESTOP triggered"</span>});
+  });
+}
+
+<span class="kw">void</span> <span class="fn">loop</span>() {
+  <span class="cm">// Process incoming commands from gateway (non-blocking)</span>
+  teleop.<span class="fn">poll</span>();
+
+  <span class="cm">// Push telemetry every 100ms (10 Hz)</span>
+  <span class="kw">if</span> (teleop.<span class="fn">telemetryDue</span>()) {
+    teleop.<span class="fn">telemetry</span>()
+      .<span class="fn">add</span>(<span class="st">"battery_v"</span>,  <span class="fn">analogRead</span>(A0) * <span class="num">0.0049</span> * <span class="num">4.2</span>)
+      .<span class="fn">add</span>(<span class="st">"temp_c"</span>,     <span class="fn">readTemperature</span>())
+      .<span class="fn">add</span>(<span class="st">"imu_yaw"</span>,    imu.<span class="fn">getYaw</span>())
+      .<span class="fn">send</span>();
+  }
+}</pre>
+    </div>
+
+    <div class="code-pane" id="tab-python">
+<pre><span class="cm">#!/usr/bin/env python3
+# ── Python Operator Client ─────────────────────────────────────────</span>
+<span class="kw">import</span> asyncio
+<span class="kw">from</span> teleop_sdk <span class="kw">import</span> TeleOpClient, Gamepad
+
+<span class="kw">async def</span> <span class="fn">main</span>():
+    <span class="cm"># Connect to a remote robot by ID — works over the internet</span>
+    async <span class="kw">with</span> TeleOpClient(
+        robot_id=<span class="st">"robo-xyz-7a3f"</span>,
+        api_key=<span class="st">"ak-live-your-key"</span>,
+        latency_target_ms=<span class="num">40</span>,          <span class="cm"># SDK picks the closest relay node</span>
+        reconnect=<span class="kw">True</span>,                <span class="cm"># auto-reconnect on drop</span>
+    ) <span class="kw">as</span> bot:
+
+        <span class="cm"># Subscribe to telemetry</span>
+        @bot.<span class="fn">on_telemetry</span>
+        <span class="kw">async def</span> <span class="fn">on_telem</span>(data):
+            <span class="fn">print</span>(<span class="st">f"Battery: {data['battery_v']:.2f}V  Yaw: {data['imu_yaw']:.1f}°"</span>)
+
+        <span class="cm"># Drive loop with Xbox gamepad</span>
+        <span class="kw">async with</span> Gamepad() <span class="kw">as</span> gp:
+            <span class="kw">while True</span>:
+                axes = <span class="kw">await</span> gp.<span class="fn">read</span>()
+                <span class="kw">await</span> bot.<span class="fn">command</span>(<span class="st">"drive"</span>, {
+                    <span class="st">"speed"</span>: axes.left_y,   <span class="cm"># left stick Y</span>
+                    <span class="st">"turn"</span>:  axes.right_x,  <span class="cm"># right stick X</span>
+                })
+                <span class="kw">if</span> axes.button_b:
+                    <span class="kw">await</span> bot.<span class="fn">command</span>(<span class="st">"estop"</span>)
+
+asyncio.<span class="fn">run</span>(main())</pre>
+    </div>
+
+    <div class="code-pane" id="tab-js">
+<pre><span class="cm">// ── Browser / Node.js Operator SDK ─────────────────────────────────</span>
+<span class="kw">import</span> { TeleOpClient, GamepadBinding } <span class="kw">from</span> <span class="st">'@teleop/sdk'</span>;
+
+<span class="kw">const</span> bot = <span class="kw">new</span> <span class="cls">TeleOpClient</span>({
+  robotId:  <span class="st">'robo-xyz-7a3f'</span>,
+  apiKey:   <span class="st">'ak-live-your-key'</span>,
+  relay:    <span class="st">'auto'</span>,          <span class="cm">// picks nearest Anycast node</span>
+  reconnect: <span class="kw">true</span>,
+});
+
+<span class="cm">// Real-time telemetry callback</span>
+bot.<span class="fn">onTelemetry</span>((data) => {
+  document.<span class="fn">getElementById</span>(<span class="st">'battery'</span>).textContent =
+    data.battery_v.<span class="fn">toFixed</span>(<span class="num">2</span>) + <span class="st">'V'</span>;
+});
+
+<span class="cm">// Keyboard → drive command mapping</span>
+<span class="kw">const</span> keys = {};
+document.<span class="fn">addEventListener</span>(<span class="st">'keydown'</span>, e => keys[e.key] = <span class="kw">true</span>);
+document.<span class="fn">addEventListener</span>(<span class="st">'keyup'</span>,   e => keys[e.key] = <span class="kw">false</span>);
+
+<span class="fn">setInterval</span>(<span class="kw">async</span> () => {
+  <span class="kw">const</span> speed = (keys[<span class="st">'ArrowUp'</span>] ? <span class="num">1</span> : <span class="num">0</span>) - (keys[<span class="st">'ArrowDown'</span>] ? <span class="num">1</span> : <span class="num">0</span>);
+  <span class="kw">const</span> turn  = (keys[<span class="st">'ArrowRight'</span>] ? <span class="num">1</span> : <span class="num">0</span>) - (keys[<span class="st">'ArrowLeft'</span>] ? <span class="num">1</span> : <span class="num">0</span>);
+  <span class="kw">await</span> bot.<span class="fn">command</span>(<span class="st">'drive'</span>, { speed, turn });
+}, <span class="num">50</span>); <span class="cm">// 20 Hz command rate</span>
+
+<span class="cm">// Gamepad binding helper</span>
+<span class="kw">const</span> gp = <span class="kw">new</span> <span class="cls">GamepadBinding</span>(bot, {
+  axes: { <span class="num">1</span>: <span class="st">'drive.speed'</span>, <span class="num">2</span>: <span class="st">'drive.turn'</span> },
+  buttons: { <span class="num">1</span>: <span class="st">'estop'</span> },
+  deadzone: <span class="num">0.08</span>,
+});
+gp.<span class="fn">start</span>();
+
+<span class="kw">await</span> bot.<span class="fn">connect</span>();
+console.<span class="fn">log</span>(<span class="st">'Connected to'</span>, <span class="kw">await</span> bot.<span class="fn">ping</span>(), <span class="st">'ms away'</span>);</pre>
+    </div>
+
+    <div class="code-pane" id="tab-esp32">
+<pre><span class="cm">// ── ESP32 Gateway Firmware ──────────────────────────────────────────
+// Flash this to an ESP32. It bridges Arduino (USB Serial) ↔ TeleOp cloud</span>
+#<span class="kw">include</span> <span class="st">&lt;TeleOpGateway.h&gt;</span>
+#<span class="kw">include</span> <span class="st">&lt;WiFi.h&gt;</span>
+
+<span class="kw">const char</span>* SSID     = <span class="st">"YourWiFi"</span>;
+<span class="kw">const char</span>* PASS     = <span class="st">"password"</span>;
+<span class="kw">const char</span>* ROBOT_ID = <span class="st">"robo-xyz-7a3f"</span>;
+<span class="kw">const char</span>* SECRET   = <span class="st">"sk-live-abc123..."</span>;
+
+<span class="cm">// TeleOpGateway handles: WiFi reconnection, MQTT-over-TLS to relay,
+// AES-256-GCM command decryption, and forwarding to Arduino via Serial2</span>
+<span class="cls">TeleOpGateway</span> gw(ROBOT_ID, SECRET);
+
+<span class="kw">void</span> <span class="fn">setup</span>() {
+  Serial.<span class="fn">begin</span>(<span class="num">115200</span>);            <span class="cm">// Debug</span>
+  Serial2.<span class="fn">begin</span>(<span class="num">115200</span>, SERIAL_8N1, <span class="num">16</span>, <span class="num">17</span>);  <span class="cm">// Arduino link</span>
+
+  WiFi.<span class="fn">begin</span>(SSID, PASS);
+  gw.<span class="fn">begin</span>(Serial2);              <span class="cm">// Pass the serial port to Arduino</span>
+
+  <span class="cm">// Optional: report gateway status in telemetry</span>
+  gw.<span class="fn">addStatusProvider</span>([]() {
+    <span class="kw">return</span> TeleOpStatus{
+      .<span class="prop">rssi</span>    = WiFi.<span class="fn">RSSI</span>(),
+      .<span class="prop">heap</span>    = ESP.<span class="fn">getFreeHeap</span>(),
+      .<span class="prop">uptime</span>  = millis() / <span class="num">1000UL</span>,
+    };
+  });
+}
+
+<span class="kw">void</span> <span class="fn">loop</span>() {
+  gw.<span class="fn">loop</span>();    <span class="cm">// Non-blocking — handles WiFi, MQTT, bridging</span>
+}</pre>
+    </div>
+
+    <div class="code-pane" id="tab-ros2">
+<pre><span class="cm">// ── ROS2 TeleOp Bridge Node (C++) ─────────────────────────────────</span>
+#<span class="kw">include</span> <span class="st">"teleop_sdk/ros2_bridge.hpp"</span>
+#<span class="kw">include</span> <span class="st">"geometry_msgs/msg/twist.hpp"</span>
+#<span class="kw">include</span> <span class="st">"sensor_msgs/msg/imu.hpp"</span>
+
+<span class="kw">using namespace</span> teleop_sdk;
+
+<span class="kw">class</span> <span class="cls">TeleOpBridgeNode</span> : <span class="kw">public</span> Ros2Bridge {
+<span class="kw">public</span>:
+  <span class="cls">TeleOpBridgeNode</span>() : <span class="cls">Ros2Bridge</span>(<span class="st">"teleop_bridge"</span>) {
+    <span class="cm">// Declare parameters</span>
+    robot_id_ = <span class="fn">declare_parameter</span><span class="st">&lt;std::string&gt;</span>(<span class="st">"robot_id"</span>);
+    api_key_  = <span class="fn">declare_parameter</span><span class="st">&lt;std::string&gt;</span>(<span class="st">"api_key"</span>);
+
+    <span class="cm">// Map TeleOp "drive" command → /cmd_vel topic</span>
+    <span class="fn">mapCommandToTopic</span>&lt;geometry_msgs::msg::Twist&gt;(
+      <span class="st">"drive"</span>, <span class="st">"/cmd_vel"</span>,
+      [](TeleOpCmd cmd, geometry_msgs::msg::Twist& msg) {
+        msg.linear.x  = cmd.<span class="fn">getDouble</span>(<span class="st">"speed"</span>);
+        msg.angular.z = cmd.<span class="fn">getDouble</span>(<span class="st">"turn"</span>);
+      }
+    );
+
+    <span class="cm">// Map /imu/data topic → telemetry stream</span>
+    <span class="fn">mapTopicToTelemetry</span>&lt;sensor_msgs::msg::Imu&gt;(
+      <span class="st">"/imu/data"</span>, <span class="st">"imu"</span>,
+      [](sensor_msgs::msg::Imu msg, TeleOpTelemetry& telem) {
+        telem.<span class="fn">add</span>(<span class="st">"yaw"</span>,   <span class="fn">quaternionToYaw</span>(msg.orientation));
+        telem.<span class="fn">add</span>(<span class="st">"accel"</span>, msg.linear_acceleration.x);
+      }
+    );
+
+    <span class="fn">connect</span>(robot_id_, api_key_);
+  }
+};</pre>
+    </div>
+  </div>
+
+  <!-- API Reference -->
+  <div class="panel full" id="sec-api">
+    <div class="panel-header">
+      <div class="panel-title">API Reference</div>
+      <span style="font-size:10px;color:var(--text-dim);font-family:'Share Tech Mono',monospace;">Click to expand</span>
+    </div>
+    <div class="api-list">
+
+      <div class="api-item" onclick="toggleApi(this)">
+        <div class="api-item-header">
+          <span class="api-method">CLASS</span>
+          <span class="api-name">TeleOpSDK(robot_id, secret)</span>
+          <span class="api-desc">Arduino — core robot-side object</span>
+        </div>
+        <div class="api-detail">
+          <div class="api-param"><span class="api-param-name">robot_id</span><span class="api-param-type">const char*</span><span class="api-param-info">Your robot's unique ID from the dashboard</span></div>
+          <div class="api-param"><span class="api-param-name">secret</span><span class="api-param-type">const char*</span><span class="api-param-info">Shared secret for HMAC command authentication</span></div>
+          <br>
+          <div class="api-param"><span class="api-param-name">.begin(serial)</span><span class="api-param-type">void</span><span class="api-param-info">Init with the hardware serial port connected to gateway</span></div>
+          <div class="api-param"><span class="api-param-name">.poll()</span><span class="api-param-type">void</span><span class="api-param-info">Process incoming commands. Call in loop() — non-blocking</span></div>
+          <div class="api-param"><span class="api-param-name">.onCommand(name, cb)</span><span class="api-param-type">void</span><span class="api-param-info">Register a handler function for a named command</span></div>
+          <div class="api-param"><span class="api-param-name">.emit(name, data)</span><span class="api-param-type">void</span><span class="api-param-info">Send a named event back to all connected operators</span></div>
+          <div class="api-param"><span class="api-param-name">.telemetry()</span><span class="api-param-type">TelemetryBuilder</span><span class="api-param-info">Returns builder; chain .add(key, val).send() to publish</span></div>
+          <div class="api-param"><span class="api-param-name">.telemetryDue()</span><span class="api-param-type">bool</span><span class="api-param-info">True when the telemetry interval has elapsed (default 100ms)</span></div>
+          <div class="api-param"><span class="api-param-name">.setRate(hz)</span><span class="api-param-type">void</span><span class="api-param-info">Set telemetry publish rate (1–50 Hz)</span></div>
+        </div>
+      </div>
+
+      <div class="api-item" onclick="toggleApi(this)">
+        <div class="api-item-header">
+          <span class="api-method post">POST</span>
+          <span class="api-name">/v1/robots/{id}/command</span>
+          <span class="api-desc">REST — send a command via HTTP (low-frequency use)</span>
+        </div>
+        <div class="api-detail">
+          <div class="api-param"><span class="api-param-name">Authorization</span><span class="api-param-type">Header</span><span class="api-param-info">Bearer ak-live-…</span></div>
+          <div class="api-param"><span class="api-param-name">command</span><span class="api-param-type">string</span><span class="api-param-info">Command name, e.g. "drive"</span></div>
+          <div class="api-param"><span class="api-param-name">params</span><span class="api-param-type">object</span><span class="api-param-info">Key-value parameters sent to robot handler</span></div>
+          <div class="api-param"><span class="api-param-name">priority</span><span class="api-param-type">int 0-9</span><span class="api-param-info">Commands &gt;5 bypass queue (for ESTOP, etc.)</span></div>
+          <br>
+          <div style="color:var(--text-dim)">Response: {"latency_ms": 12, "queued": false, "robot_ack": true}</div>
+        </div>
+      </div>
+
+      <div class="api-item" onclick="toggleApi(this)">
+        <div class="api-item-header">
+          <span class="api-method ws">WS</span>
+          <span class="api-name">wss://relay.teleop.dev/v1/control/{id}</span>
+          <span class="api-desc">WebSocket — real-time bidirectional control channel</span>
+        </div>
+        <div class="api-detail">
+          <div class="api-param"><span class="api-param-name">Subprotocol</span><span class="api-param-type">string</span><span class="api-param-info">teleop-v2</span></div>
+          <br>
+          <div>Client → Server message frames:</div>
+          <div class="api-param"><span class="api-param-name">{"type":"cmd"}</span><span class="api-param-type">object</span><span class="api-param-info">Send command: {type, name, params, seq}</span></div>
+          <div class="api-param"><span class="api-param-name">{"type":"ping"}</span><span class="api-param-type">object</span><span class="api-param-info">Latency probe, receives pong with ts</span></div>
+          <br>
+          <div>Server → Client message frames:</div>
+          <div class="api-param"><span class="api-param-name">{"type":"telem"}</span><span class="api-param-type">object</span><span class="api-param-info">Telemetry batch from robot</span></div>
+          <div class="api-param"><span class="api-param-name">{"type":"event"}</span><span class="api-param-type">object</span><span class="api-param-info">Named event emitted by robot</span></div>
+          <div class="api-param"><span class="api-param-name">{"type":"status"}</span><span class="api-param-type">object</span><span class="api-param-info">Connection health: latency, drops, robot online</span></div>
+        </div>
+      </div>
+
+      <div class="api-item" onclick="toggleApi(this)">
+        <div class="api-item-header">
+          <span class="api-method evt">EVENT</span>
+          <span class="api-name">TeleOpCmd — command argument accessor</span>
+          <span class="api-desc">Arduino — passed to onCommand() handlers</span>
+        </div>
+        <div class="api-detail">
+          <div class="api-param"><span class="api-param-name">.getFloat(key)</span><span class="api-param-type">float</span><span class="api-param-info">Read a float parameter</span></div>
+          <div class="api-param"><span class="api-param-name">.getInt(key)</span><span class="api-param-type">int</span><span class="api-param-info">Read an integer parameter</span></div>
+          <div class="api-param"><span class="api-param-name">.getString(key)</span><span class="api-param-type">String</span><span class="api-param-info">Read a string parameter</span></div>
+          <div class="api-param"><span class="api-param-name">.getBool(key)</span><span class="api-param-type">bool</span><span class="api-param-info">Read a boolean parameter</span></div>
+          <div class="api-param"><span class="api-param-name">.has(key)</span><span class="api-param-type">bool</span><span class="api-param-info">Check if a key exists</span></div>
+          <div class="api-param"><span class="api-param-name">.seq</span><span class="api-param-type">uint32_t</span><span class="api-param-info">Sequence number — detect dropped commands</span></div>
+          <div class="api-param"><span class="api-param-name">.timestamp_ms</span><span class="api-param-type">uint64_t</span><span class="api-param-info">Unix ms when command was sent by operator</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Live Simulator -->
+  <div class="panel full" id="sec-demo">
+    <div class="panel-header">
+      <div class="panel-title">Simulator — Interactive Demo</div>
+      <div class="status-pill" id="sim-status">
+        <div class="status-dot"></div>
+        ROBOT ONLINE — sim
+      </div>
+    </div>
+    <div class="demo-panel">
+
+      <div class="telem-grid">
+        <div class="telem-card">
+          <span class="telem-val" id="telem-battery">12.4</span>
+          <div class="telem-unit">BATTERY (V)</div>
+        </div>
+        <div class="telem-card">
+          <span class="telem-val" id="telem-speed">0.00</span>
+          <div class="telem-unit">SPEED CMD</div>
+        </div>
+        <div class="telem-card">
+          <span class="telem-val" id="telem-latency">18</span>
+          <div class="telem-unit">LATENCY (ms)</div>
+        </div>
+        <div class="telem-card">
+          <span class="telem-val" id="telem-yaw">0.0°</span>
+          <div class="telem-unit">HEADING</div>
+        </div>
+      </div>
+
+      <div class="demo-controls">
+        <div class="ctrl-group">
+          <label>Speed Command</label>
+          <input type="range" class="ctrl-slider" min="-100" max="100" value="0" id="speed-slider"
+            oninput="updateSim('speed', this.value/100)">
+        </div>
+        <div class="ctrl-group">
+          <label>Turn Command</label>
+          <input type="range" class="ctrl-slider" min="-100" max="100" value="0" id="turn-slider"
+            oninput="updateSim('turn', this.value/100)">
+        </div>
+        <div class="ctrl-group">
+          <label>Robot ID</label>
+          <input type="text" class="ctrl-input" value="robo-xyz-7a3f" placeholder="Robot ID" id="robot-id-input">
+        </div>
+        <div class="ctrl-group">
+          <label>Relay Region</label>
+          <select class="ctrl-select" onchange="updateRegion(this.value)">
+            <option>Auto (lowest latency)</option>
+            <option>us-east-1</option>
+            <option>eu-west-1</option>
+            <option>ap-northeast-1</option>
+            <option>sa-east-1</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;">
+        <button class="btn-primary" style="font-size:11px;padding:9px 18px;" onclick="sendCmd('drive')">▶ SEND DRIVE CMD</button>
+        <button class="btn-outline" style="font-size:11px;padding:9px 18px;" onclick="sendCmd('estop')">⬛ E-STOP</button>
+        <button class="btn-outline" style="font-size:11px;padding:9px 18px;border-color:rgba(255,107,53,0.4);color:var(--accent3)" onclick="resetSim()">↺ RESET</button>
+      </div>
+
+      <div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:2px;margin-bottom:6px;">COMMAND LOG</div>
+        <div class="log-box" id="log-box">
+          <div class="log-entry"><span class="log-time">[00:00.000]</span> <span class="log-ok">✓ TeleOpSDK initialized — robot online</span></div>
+          <div class="log-entry"><span class="log-time">[00:00.012]</span> <span class="log-info">→ Connected to relay: us-east-1.relay.teleop.dev</span></div>
+          <div class="log-entry"><span class="log-time">[00:00.018]</span> <span class="log-info">→ RTT: 18ms</span></div>
+          <div class="log-entry"><span class="log-time">[00:00.100]</span> <span class="log-ok">✓ Telemetry streaming at 10Hz</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /.main -->
+
+<footer>
+  <div class="footer-brand">TELEOP SDK — v2.4.1</div>
+  <div class="footer-links">
+    <a href="#">GitHub</a>
+    <a href="#">Docs</a>
+    <a href="#">Dashboard</a>
+    <a href="#">Discord</a>
+    <a href="#">MIT License</a>
+  </div>
+</footer>
+
+</div><!-- /.wrap -->
+
+<script>
+// ── Section nav ────────────────────────────────────────────────────
+function showSection(id) {
+  const map = {
+    overview: 'sec-overview',
+    quickstart: 'sec-quickstart',
+    api: 'sec-api',
+    demo: 'sec-demo',
+  };
+  const el = document.getElementById(map[id]);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const btn = [...document.querySelectorAll('.nav-btn')].find(b =>
+    b.textContent.toLowerCase().includes(id.slice(0,4))
+  );
+  if (btn) btn.classList.add('active');
+}
+
+// ── Code tabs ──────────────────────────────────────────────────────
+function switchTab(el, paneId) {
+  el.closest('.panel').querySelectorAll('.code-tab').forEach(t => t.classList.remove('active'));
+  el.closest('.panel').querySelectorAll('.code-pane').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById(paneId).classList.add('active');
+}
+
+// ── API accordion ──────────────────────────────────────────────────
+function toggleApi(el) { el.classList.toggle('open'); }
+
+// ── Copy button ───────────────────────────────────────────────────
+function copyCmd(btn, text) {
+  navigator.clipboard?.writeText(text);
+  btn.textContent = 'COPIED!';
+  setTimeout(() => btn.textContent = 'COPY', 1600);
+}
+
+// ── Simulator ─────────────────────────────────────────────────────
+let simState = { speed: 0, turn: 0, yaw: 0, battery: 12.4, latency: 18 };
+let simInterval;
+
+function log(msg, type='info') {
+  const box = document.getElementById('log-box');
+  const now = new Date();
+  const ts = `${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}.${String(now.getMilliseconds()).padStart(3,'0')}`;
+  const div = document.createElement('div');
+  div.className = 'log-entry';
+  div.innerHTML = `<span class="log-time">[${ts}]</span> <span class="log-${type}">${msg}</span>`;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+function updateSim(axis, val) {
+  simState[axis] = parseFloat(val);
+  document.getElementById('telem-speed').textContent = simState.speed.toFixed(2);
+}
+
+function sendCmd(name) {
+  const latency = 12 + Math.floor(Math.random() * 20);
+  simState.latency = latency;
+  document.getElementById('telem-latency').textContent = latency;
+
+  if (name === 'drive') {
+    simState.yaw += simState.turn * 3;
+    document.getElementById('telem-yaw').textContent = simState.yaw.toFixed(1) + '°';
+    log(`→ CMD drive {speed: ${simState.speed.toFixed(2)}, turn: ${simState.turn.toFixed(2)}} — ACK ${latency}ms`, 'ok');
+  } else if (name === 'estop') {
+    simState.speed = 0; simState.turn = 0;
+    document.getElementById('speed-slider').value = 0;
+    document.getElementById('turn-slider').value = 0;
+    document.getElementById('telem-speed').textContent = '0.00';
+    log('⬛ ESTOP command sent — robot halted', 'warn');
+  }
+}
+
+function resetSim() {
+  simState = { speed: 0, turn: 0, yaw: 0, battery: 12.4, latency: 18 };
+  ['speed-slider','turn-slider'].forEach(id => document.getElementById(id).value = 0);
+  document.getElementById('telem-speed').textContent = '0.00';
+  document.getElementById('telem-yaw').textContent = '0.0°';
+  document.getElementById('log-box').innerHTML = '';
+  log('✓ Simulator reset', 'ok');
+}
+
+function updateRegion(r) {
+  const latMap = { 'Auto': 18, 'us-east-1': 14, 'eu-west-1': 82, 'ap-northeast-1': 134, 'sa-east-1': 160 };
+  const key = r.replace(' (lowest latency)','').replace('Auto','Auto');
+  const base = latMap[key] || 18;
+  simState.latency = base + Math.floor(Math.random() * 8);
+  document.getElementById('telem-latency').textContent = simState.latency;
+  log(`→ Relay region switched to ${r} — RTT ${simState.latency}ms`, 'info');
+}
+
+// Telemetry sim loop
+setInterval(() => {
+  simState.battery = Math.max(10.5, simState.battery - 0.001 * Math.abs(simState.speed));
+  document.getElementById('telem-battery').textContent = simState.battery.toFixed(1);
+}, 500);
+
+// Log heartbeat
+setInterval(() => {
+  const lat = simState.latency + Math.floor(Math.random()*6 - 3);
+  document.getElementById('telem-latency').textContent = Math.max(8, lat);
+}, 2000);
+</script>
+</body>
+</html>
